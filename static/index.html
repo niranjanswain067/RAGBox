@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAGBox — Local Document AI Assistant</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="brand-logo">📦</div>
+                <div>
+                    <h1 class="brand-title">RAGBox</h1>
+                    <p class="brand-subtitle">Local Document AI Assistant</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div id="statusBadge" class="status-chip">
+                    <span class="status-dot"></span>
+                    <span id="statusText">Checking system...</span>
+                </div>
+                <button id="settingsBtn" class="btn-icon" title="Retrieval & Model Settings" aria-label="Settings">
+                    ⚙️
+                </button>
+                <button id="clearDbBtn" class="btn-icon btn-danger" title="Clear Database" aria-label="Clear Database">
+                    🗑️
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-layout">
+            
+            <!-- Document Upload Card -->
+            <section class="card upload-card" id="uploadSection">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="step-num">1</span>
+                        <span>Document Source</span>
+                    </div>
+                    <span id="docStatusBadge" class="badge">No document loaded</span>
+                </div>
+
+                <div class="dropzone" id="dropzone">
+                    <input type="file" id="fileInput" accept=".pdf" class="file-input">
+                    <div class="dropzone-content">
+                        <div class="upload-icon">📄</div>
+                        <div class="dropzone-text">
+                            <strong>Click to upload</strong> or drag and drop your PDF here
+                        </div>
+                        <div class="dropzone-sub">Supports single or multi-page PDF documents</div>
+                    </div>
+                </div>
+
+                <div id="selectedFileInfo" class="selected-file-bar hidden">
+                    <span class="file-name" id="fileNameDisplay">document.pdf</span>
+                    <button id="processBtn" class="btn btn-primary">
+                        <span>Process Document</span>
+                        <span class="btn-arrow">→</span>
+                    </button>
+                </div>
+
+                <!-- Processing Progress Steps -->
+                <div id="progressContainer" class="progress-box hidden">
+                    <div class="progress-spinner"></div>
+                    <div class="progress-text" id="progressStatus">Extracting text from PDF...</div>
+                </div>
+
+                <!-- Document Stats Summary -->
+                <div id="docSummaryBar" class="doc-summary hidden">
+                    <div class="summary-item">
+                        <span class="summary-label">Document</span>
+                        <strong id="summaryDocName">-</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Pages</span>
+                        <strong id="summaryPages">-</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Chunks</span>
+                        <strong id="summaryChunks">-</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Vector Store</span>
+                        <span class="badge-success">ChromaDB Indexed</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Question & Answer Card -->
+            <section class="card qa-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="step-num">2</span>
+                        <span>Ask Questions</span>
+                    </div>
+                    <div class="teaching-toggle-wrap">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="teachingToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span class="toggle-label">Teaching Mode</span>
+                    </div>
+                </div>
+
+                <form id="questionForm" class="question-form">
+                    <div class="input-wrapper">
+                        <input 
+                            type="text" 
+                            id="questionInput" 
+                            class="question-input" 
+                            placeholder="Ask any question about the uploaded document..." 
+                            autocomplete="off"
+                            required
+                        >
+                        <button type="submit" id="askBtn" class="btn btn-primary submit-btn">
+                            <span>Ask</span>
+                            <span id="askSpinner" class="btn-spinner hidden"></span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Quick Suggested Questions -->
+                <div class="suggestions-bar">
+                    <span class="suggestions-label">Suggestions:</span>
+                    <button type="button" class="chip-btn" data-question="What is the minimum attendance requirement?">
+                        Attendance requirement?
+                    </button>
+                    <button type="button" class="chip-btn" data-question="Who is the Prime Minister of Japan?">
+                        Hallucination test (Out of document)
+                    </button>
+                </div>
+
+                <!-- Answer Card -->
+                <div id="answerSection" class="answer-wrapper hidden">
+                    <div class="answer-header">
+                        <span class="answer-tag">💡 Grounded Answer</span>
+                    </div>
+                    <div id="answerText" class="answer-content">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <!-- Verified Sources -->
+                    <div id="sourcesContainer" class="sources-box">
+                        <span class="sources-title">📚 Verified Sources:</span>
+                        <div id="sourcesList" class="sources-list">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 🎓 Teaching Mode: 5-Step Pipeline Inspector -->
+            <section id="teachingModeSection" class="card teaching-card hidden">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="teach-icon">🎓</span>
+                        <span>Teaching Mode: Internal RAG Pipeline Inspector</span>
+                    </div>
+                    <span class="badge">Live Telemetry</span>
+                </div>
+                
+                <p class="teaching-desc">
+                    Inspect the exact data transformations as your question is retrieved, constructed into a grounded prompt, and completed by local Qwen 3.0 INT4.
+                </p>
+
+                <div class="accordion-container">
+                    
+                    <!-- Step 1: Ingestion -->
+                    <div class="accordion-item">
+                        <button class="accordion-header" type="button">
+                            <span class="acc-step">Step 1</span>
+                            <span class="acc-title">Document Ingestion & Chunking</span>
+                            <span class="acc-icon">+</span>
+                        </button>
+                        <div class="accordion-body">
+                            <div class="metrics-grid">
+                                <div class="metric-card">
+                                    <div class="metric-label">Pages Extracted</div>
+                                    <div class="metric-val" id="teachPages">-</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-label">Chunks Created</div>
+                                    <div class="metric-val" id="teachChunks">-</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-label">Embedding Dimensions</div>
+                                    <div class="metric-val">384</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-label">Storage</div>
+                                    <div class="metric-val">ChromaDB</div>
+                                </div>
+                            </div>
+                            <p class="acc-explanation">
+                                <strong>Why this matters:</strong> Chunking segments documents into overlapping character windows so that semantic boundaries are preserved and context fits comfortably into vector databases and LLM context windows.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Question Vectorization -->
+                    <div class="accordion-item">
+                        <button class="accordion-header" type="button">
+                            <span class="acc-step">Step 2</span>
+                            <span class="acc-title">Question Embedding Generation</span>
+                            <span class="acc-icon">+</span>
+                        </button>
+                        <div class="accordion-body">
+                            <p><strong>Processed Query:</strong> <code id="teachQuery">-</code></p>
+                            <p><strong>Vector Model:</strong> <code>sentence-transformers/all-MiniLM-L6-v2</code> (Local CPU)</p>
+                            <p class="acc-explanation">
+                                <strong>Why this matters:</strong> The user's natural language question is projected into a mathematical 384-dimensional vector space where semantic concepts cluster together.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Retrieval -->
+                    <div class="accordion-item active">
+                        <button class="accordion-header" type="button">
+                            <span class="acc-step">Step 3</span>
+                            <span class="acc-title">ChromaDB Top-K Nearest Chunks</span>
+                            <span class="acc-icon">−</span>
+                        </button>
+                        <div class="accordion-body">
+                            <div id="retrievedChunksList" class="retrieved-chunks-list">
+                                <!-- Populated dynamically -->
+                            </div>
+                            <p class="acc-explanation">
+                                <strong>Why this matters:</strong> ChromaDB computes the cosine distance between the question vector and all indexed document vectors, returning only the most relevant excerpts.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Prompt Construction -->
+                    <div class="accordion-item">
+                        <button class="accordion-header" type="button">
+                            <span class="acc-step">Step 4</span>
+                            <span class="acc-title">Assembled Grounded Prompt</span>
+                            <span class="acc-icon">+</span>
+                        </button>
+                        <div class="accordion-body">
+                            <div class="prompt-box">
+                                <pre><code id="teachPrompt">Prompt will appear here after asking a question...</code></pre>
+                            </div>
+                            <p class="acc-explanation">
+                                <strong>Why this matters:</strong> Notice how retrieved excerpts are placed directly into the <code>Context:</code> block. The strict prompt instructs Qwen to answer using ONLY this context and prevents hallucinations.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 5: Model Reasoning & Factual Verification -->
+                    <div class="accordion-item active">
+                        <button class="accordion-header" type="button">
+                            <span class="acc-step">Step 5</span>
+                            <span class="acc-title">🧠 Step-by-Step Model Reasoning & Grounding Verification</span>
+                            <span class="acc-icon">−</span>
+                        </button>
+                        <div class="accordion-body">
+                            <div class="reasoning-box">
+                                <p id="teachReasoning">Model reasoning will appear here...</p>
+                            </div>
+                            <p class="acc-explanation">
+                                <strong>Why this matters:</strong> This is Qwen's internal chain-of-thought verification. It shows how the model inspected the excerpts, cross-referenced the facts, and prevented hallucination before writing the final answer.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 6: Generation Telemetry -->
+                    <div class="accordion-item">
+                        <button class="accordion-header" type="button">
+                            <span class="acc-step">Step 6</span>
+                            <span class="acc-title">Local Qwen 3.0 INT4 Telemetry</span>
+                            <span class="acc-icon">+</span>
+                        </button>
+                        <div class="accordion-body">
+                            <div class="metrics-grid">
+                                <div class="metric-card">
+                                    <div class="metric-label">Model</div>
+                                    <div class="metric-val" id="teachModel">Qwen 3.0 INT4</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-label">Execution Time</div>
+                                    <div class="metric-val" id="teachTime">-</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-label">Tokens Generated</div>
+                                    <div class="metric-val" id="teachTokens">-</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-label">Inference Speed</div>
+                                    <div class="metric-val" id="teachSpeed">-</div>
+                                </div>
+                            </div>
+                            <p class="acc-explanation">
+                                <strong>Genuine Metrics:</strong> These numbers are measured directly from <code>llama-cpp-python</code> executing locally on your CPU.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>⚙️ Pipeline Settings</h2>
+                    <button id="closeSettingsBtn" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <label for="settingTopK">Top K Chunks Retrieved: <strong id="topKVal">3</strong></label>
+                        <input type="range" id="settingTopK" min="1" max="8" value="3" step="1">
+                        <span class="setting-hint">Number of context excerpts retrieved per question.</span>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="settingTemp">LLM Temperature: <strong id="tempVal">0.2</strong></label>
+                        <input type="range" id="settingTemp" min="0.0" max="1.0" value="0.2" step="0.05">
+                        <span class="setting-hint">Lower values produce more deterministic, factual answers.</span>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="settingChunkSize">Chunk Size (Characters): <strong id="chunkSizeVal">500</strong></label>
+                        <input type="range" id="settingChunkSize" min="200" max="1200" value="500" step="50">
+                        <span class="setting-hint">Target character length for each document segment.</span>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="settingOverlap">Chunk Overlap (Characters): <strong id="overlapVal">100</strong></label>
+                        <input type="range" id="settingOverlap" min="0" max="300" value="100" step="25">
+                        <span class="setting-hint">Shared character count between adjacent chunks.</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="saveSettingsBtn" class="btn btn-primary">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>RAGBox — Built with PyMuPDF, Sentence-Transformers, ChromaDB, and Local Qwen 3.0 INT4</p>
+        </footer>
+
+    </div>
+
+    <!-- Application Script -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

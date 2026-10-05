@@ -1,0 +1,27 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Vector database local persistence
+chroma_db/
+
+# Streamlit config and cache
+.streamlit/
+
+# Large model weights (tracked via Git LFS)
+models/*.bin
+
+# IDE and OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
